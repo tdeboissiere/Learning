@@ -1,0 +1,122 @@
+#include <iostream>
+#include <fstream>
+#include "TMath.h"
+#include "TRandom3.h"
+#include "TRandom2.h"
+#include "TRandom.h"
+#include "TF1.h"
+#include "TF2.h"
+#include "TGraph.h"
+#include <vector>
+#include "TFile.h"
+
+using namespace std;
+
+//This is the true density we want to sample
+//A simple gaussian, with 3 param: Amp, Mu, S and one observable: E
+double density(double *x, double * par){
+
+double S=par[0]; double Mu=par[1];
+double E=x[0];
+double pi=TMath::Pi();
+
+return exp(-0.5*pow((E-Mu)/S,2))*1/(sqrt(2*pi)*S);
+
+}
+
+int main() {
+
+TRandom3 u;
+u.SetSeed(0);
+
+
+vector <double> s_vec;
+vector <double> mu_vec;
+
+
+//Starting values for the param
+//----------------------------
+double  start_s, start_mu;
+start_s=10;
+start_mu=1;
+s_vec.push_back(start_s); mu_vec.push_back(start_mu); 
+
+// Read the data		data are the observables, fdata the density evaluated at data
+//-------------
+vector<double> data;
+vector<double> fdata;
+double temp_data,temp_fdata;
+ifstream file("data.txt");
+while (!file.eof()) {
+file >> temp_data >> temp_fdata;
+data.push_back(temp_data); fdata.push_back(temp_fdata);
+}
+data.pop_back(); fdata.pop_back();
+
+//Function for likelihood
+//---------------------
+TF1* f1 = new TF1("density",density,-20,20,2);
+
+
+
+const int nMCmax=1000;
+//MCMC running
+//-----------
+for (int nMC=0; nMC<nMCmax; nMC++){
+        double width=.1;
+	s_vec.push_back(s_vec[nMC]+width*u.Gaus(0,1));
+	mu_vec.push_back(mu_vec[nMC]+width*u.Gaus(0,1));
+
+	double like_i=0; double like_f=0;
+	for (int k=0; k<data.size(); k++){
+	//initial likelihood
+	//------------------ 
+	f1->SetParameter(0,s_vec[nMC]);    f1->SetParameter(1,mu_vec[nMC]);
+	like_i=like_i+log(f1->Eval(data[k]));
+	//cout << k << "    " << like_i<< "    " <<data[k] << endl;
+	//final likelihood
+	//------------------ 
+	f1->SetParameter(0,s_vec[nMC+1]);    f1->SetParameter(1,mu_vec[nMC+1]);
+	like_f=like_f+log(f1->Eval(data[k]));
+	}
+	//cout << like_i<<"   "<<like_f<<"   "  <<s_vec[nMC]<<"   " << s_vec[nMC+1]<<"   " <<mu_vec[nMC]<<"   " << mu_vec[nMC+1]<< endl;
+	//Acceptance probability
+	//----------------------
+	double prob_ratio=exp(like_f-like_i);
+	double accept=TMath::Min(1.,prob_ratio);
+	if (u.Binomial(1,accept)==0) {
+	s_vec.pop_back(); mu_vec.pop_back(); 
+	s_vec.push_back(s_vec[nMC]); mu_vec.push_back(mu_vec[nMC]);
+	}
+	//cout <<accept << "    " << prob_ratio<<"    " << like_i<<"   "<<like_f<< "   " <<s_vec[nMC]<<"   " << s_vec[nMC+1]<<"   " <<mu_vec[nMC]<<"   " << mu_vec[nMC+1]<< endl;
+	//cout << like_i<<"   "<<like_f<<"   "  <<s_vec[nMC]<<"   " << s_vec[nMC+1]<<"   " <<mu_vec[nMC]<<"   " << mu_vec[nMC+1]<< endl;
+}
+//End of MCMC running
+//-----------
+
+double s_tabl[nMCmax+1]; double mu_tabl[nMCmax+1];
+double nMC_tabl[nMCmax+1]; 
+for (int k=0; k<=nMCmax; k++) {
+   nMC_tabl[k]=k;
+   s_tabl[k]=s_vec[k]; mu_tabl[k]=mu_vec[k];
+}
+
+
+
+TGraph *gr_s = new TGraph (nMCmax, nMC_tabl, s_tabl);
+gr_s->SetLineColor(kRed);
+gr_s->SetLineWidth(2);
+gr_s->SetName("Sigma");
+
+TGraph *gr_mu = new TGraph (nMCmax, nMC_tabl, mu_tabl);
+gr_mu->SetLineColor(kBlue);
+gr_mu->SetLineWidth(2);
+gr_mu->SetName("Mean");
+
+
+TFile f("graph_MCMC_simplified.root","recreate");
+ gr_s->Write(); gr_mu->Write();
+f.Close();
+
+return 0;
+}

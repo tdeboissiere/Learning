@@ -1,0 +1,49 @@
+#include <iostream>
+#include <Eigen/Dense>
+using namespace std;
+using namespace Eigen;
+int main()
+{
+Matrix3f A;
+A << 100, 2.1, 5.2,
+2.1, 3, 4.8,
+5.2, 4.8, 5;
+
+cout << "Here is the matrix A:\n" << A << endl;
+SelfAdjointEigenSolver<Matrix3f> es(A);
+if (es.info() != Success) abort();
+cout << "The eigenvalues of A are:\n" << es.eigenvalues() << endl;
+cout << "Here's a matrix whose columns are eigenvectors of A \n"
+<< "corresponding to these eigenvalues:\n"
+<< es.eigenvectors() << endl;
+
+Matrix3f D = es.eigenvalues().asDiagonal();
+Matrix3f V = es.eigenvectors();
+
+cout << "Finally, V * D * V^(-1) = " << endl << V * D * V.transpose() << endl;
+
+Vector4i v4(1, 2, 3, 4);
+cout << v4*v4.transpose() << endl;
+
+VectorXi r(10);
+r.resize(11);
+cout << r.size() << endl;
+
+//Matrix3d Cov;
+//Cov=Matrix3d::Zero();
+//cout << Cov << endl;
+
+Matrix3d Cov;
+Cov=Matrix3d::Zero();
+        for (int i=0; i<4; i++) {
+        VectorXd v(3);
+        v(0)=1; v(1)=1;v(2)=1;
+        Cov=Cov+0.5*v*v.transpose();
+        //cout << Cov << endl;
+        }
+        
+Matrix3d Cov2=Cov;       
+   cout << Cov2 << endl;     
+}
+
+
