@@ -1,4 +1,4 @@
-# Learning : coding important algorithms from scratch
+# Learning : sandbox to re-implement classical algorithms
 
 ## MCMC implementation
 
